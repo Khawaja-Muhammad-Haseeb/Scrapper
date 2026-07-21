@@ -1,16 +1,93 @@
-# React + Vite
+# 📚 BookScrape Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend for the **BookScrape** web application built using **React** and **Vite**. The application allows users to browse books and provides an admin interface for managing the book catalog.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React
+- Vite
+- JavaScript
+- Tailwind CSS
+- React Router DOM
+- Axios
+- Zustand
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Public
+- Browse all books
+- View book details
+- Browse books by category
+- Responsive UI
+- Loading, error, and empty states
+- Image fallback for missing book covers
 
-## Expanding the ESLint configuration
+### Admin
+- JWT-based login (backend required)
+- Dashboard
+- Add books
+- Edit books
+- Delete books
+- Protected routes
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Project Structure
+
+```text
+src/
+├── assets/
+├── components/
+│   ├── admin/
+│   ├── auth/
+│   ├── book/
+│   ├── common/
+│   └── layout/
+├── constants/
+├── hooks/
+├── pages/
+│   ├── admin/
+│   └── public/
+├── services/
+├── store/
+├── styles/
+├── utils/
+├── App.jsx
+└── main.jsx
+```
+
+## Installation
+
+```bash
+npm install
+```
+
+## Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```env
+VITE_API_URL=http://localhost:8000/api
+```
+
+## Run Development Server
+
+```bash
+npm run dev
+```
+
+The application will be available at:
+
+```
+http://localhost:5173
+```
+
+## Build for Production
+
+```bash
+npm run build
+```
+
+## Preview Production Build
+
+```bash
+npm run preview
+```

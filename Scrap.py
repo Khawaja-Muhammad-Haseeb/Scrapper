@@ -226,7 +226,13 @@ def get_book_details(book_url):
     except AttributeError:
         description = None
 
-    # Product info table
+    # Book Image
+    try:
+        image = article.find("div", class_="item active").find("img")
+        image_url = urljoin(book_url, image["src"])
+    except (AttributeError, TypeError, KeyError):
+        image_url = None
+        # Product info table
     table_data = {}
     try:
         table = article.find('table')
@@ -249,7 +255,8 @@ def get_book_details(book_url):
         'Price_Incl_Tax'  : table_data.get('Price (incl. tax)'),
         'Tax'             : table_data.get('Tax'),
         'Number_of_Reviews': table_data.get('Number of reviews'),
-        'Book_URL'        : book_url
+        'Book_URL'        : book_url,
+        'Image_URL'       : image_url
     }
 
 
@@ -276,7 +283,7 @@ def insert_book(db, book_data, category_name):
         return False
 
     except Exception as e:
-        print(f"    ✗ Error inserting book to MongoDB: {e}")
+        print(f" Error inserting book to MongoDB: {e}")
         return None
 
 

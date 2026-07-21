@@ -1,16 +1,27 @@
 from bs4 import BeautifulSoup
 import requests as req
-import pandas as pd
 import json
 import os
+import sys
 import time
 from urllib.parse import urljoin
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError, ConnectionFailure
+from datetime import datetime
+from dotenv import load_dotenv
 
+load_dotenv()
 
 BASE_URL        = "https://books.toscrape.com/"
-OUTPUT_DIR      = "books_data"
 CHECKPOINT_FILE = "checkpoint.json"
-LOG_FILE        = "scraper.log"
+
+# MongoDB Config
+MONGODB_URI = os.getenv("MONGODB_URI")
+DB_NAME = "books_toscrape"
+BOOKS_COLLECTION = "books"
+CATEGORIES_COLLECTION = "categories"
+METADATA_COLLECTION = "metadata"
+
 RETRY_LIMIT     = 3       
 RETRY_DELAY     = 2       
 REQUEST_DELAY   = 0.5    
@@ -20,11 +31,40 @@ RATING_MAP = {
     'Three': 3, 'Four': 4, 'Five': 5
 }
 
-CSV_HEADERS = [
-    'Title', 'Price', 'Rating', 'Availability',
-    'Description', 'UPC', 'Price_Excl_Tax',
-    'Price_Incl_Tax', 'Tax', 'Number_of_Reviews', 'Book_URL'
-]
+# MONGODB CONNECTION
+
+def connect_to_mongodb():
+    """Connect to MongoDB and return database object"""
+    try:
+        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        
+        # Test connection
+        client.admin.command('ping')
+        print("Connected to MongoDB successfully")
+        db = client[DB_NAME]
+        return db
+        
+    except ConnectionFailure as e:
+        print(f"Failed to connect to MongoDB: {e}")
+        print("Check your MONGODB_URI and Atlas network access settings.")
+        return None
+    except Exception as e:
+        print(f"Failed to connect to MongoDB: {e}")
+        return None
+
+
+def create_indexes(db):
+    """Create database indexes for better performance"""
+    try:
+        books = db[BOOKS_COLLECTION]
+        
+        # Create unique index on book_url (prevent duplicates)
+        books.create_index("Book_URL", unique=True)
+        print("Created indexes")
+        
+    except Exception as e:
+        print(f"Warning: Could not create indexes: {e}")
+
 
 # HELPERS
 def fetch_with_retry(url):
@@ -152,7 +192,7 @@ def get_book_details(book_url):
     if not response:
         return None
 
-    soup    = BeautifulSoup(response.content, 'html.parser')
+    soup = BeautifulSoup(response.content, 'html.parser')
     article = soup.find('article', class_='product_page')
 
     if not article:
@@ -213,13 +253,88 @@ def get_book_details(book_url):
     }
 
 
+
+# Database insertion function
+def insert_book(db, book_data, category_name):
+    """
+    Insert book into MongoDB
+    
+    Returns: True if inserted, False if duplicate, None if error
+    """
+    try:
+        books_collection = db[BOOKS_COLLECTION]
+        
+        # Add category to book data
+        book_data['category'] = category_name
+        
+        # Insert (unique index prevents duplicates)
+        books_collection.insert_one(book_data)
+        return True
+
+    except DuplicateKeyError:
+        # Book already exists (same book_url)
+        return False
+
+    except Exception as e:
+        print(f"    ✗ Error inserting book to MongoDB: {e}")
+        return None
+
+
+def insert_category(db, category_name):
+    """Insert/update category metadata"""
+    try:
+        categories = db[CATEGORIES_COLLECTION]
+        
+        # Use upsert to insert or update
+        categories.update_one(
+            {"name": category_name},
+            {"$set": {"name": category_name, "updated_at": datetime.utcnow()}},
+            upsert=True
+        )
+        return True
+
+    except Exception as e:
+        print(f"  Warning: Could not update category metadata: {e}")
+        return False
+
+
+def update_metadata(db, total_books, total_categories):
+    """Update scraping metadata"""
+    try:
+        metadata = db[METADATA_COLLECTION]
+        
+        metadata.update_one(
+            {"_id": "scrape_stats"},
+            {
+                "$set": {
+                    "total_books": total_books,
+                    "total_categories": total_categories,
+                    "last_scraped": datetime.utcnow()
+                }
+            },
+            upsert=True
+        )
+        return True
+
+    except Exception as e:
+        print(f"Warning: Could not update metadata: {e}")
+        return False
+
 # MAIN SCRAPER
 def scrape():
+    # Connect to MongoDB
+    db = connect_to_mongodb()
+    if db is None:
+        print("Cannot proceed without MongoDB connection")
+        return
+
+    # Create indexes
+    create_indexes(db)
+
     # Setup
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
     checkpoint = load_checkpoint()
     completed_categories = checkpoint.get('completed_categories', [])
-
+    total_books_scraped = 0
     #  Get categories 
     categories = get_categories()
     if not categories:
@@ -237,15 +352,13 @@ def scrape():
             continue
 
         print(f"Category: {cat_name}")
+        # Insert category metadata
+        insert_category(db, cat_name)
 
-        csv_path = os.path.join(OUTPUT_DIR, f"{cat_name}.csv")
-
-        # Create CSV with headers if it doesn't exist yet
-        if not os.path.exists(csv_path):
-            pd.DataFrame(columns=CSV_HEADERS).to_csv(csv_path, index=False)
-
+        
         page_url = cat_url
         page_num = 1
+        
 
         # Paginate through category 
         while page_url:
@@ -257,24 +370,30 @@ def scrape():
                 break
 
             # Scrape each book on this page
-            books_on_page = []
-            for book_url in book_urls:
+            for book_idx, book_url in enumerate(book_urls, start=1):
                 book_data = get_book_details(book_url)
 
                 if book_data:
-                    books_on_page.append(book_data)
-                    print(f"    {book_data['Title']}")  
+                    print(f"{book_data['Title']}")
+                    # Insert into MongoDB
+                    result = insert_book(db, book_data, cat_name)
+                    if result is True:
+                        # Successfully inserted
+                        total_books_scraped += 1
+                        print(f"[{book_idx}/{len(book_urls)}] {book_data['Title']}")
+
+                    elif result is False:
+                        # Duplicate (already exists)
+                        print(f"[{book_idx}/{len(book_urls)}] {book_data['Title']} (duplicate)")
+
+                    else:
+                        # Error
+                        print(f"[{book_idx}/{len(book_urls)}] {book_data['Title']} (error)")  
                 else:
-                    print(f"    Failed: {book_url}")  
+                    print(f"Failed: {book_url}")  
 
                 time.sleep(REQUEST_DELAY)
-
-            # Write page's books to CSV
-            if books_on_page:
-                pd.DataFrame(books_on_page).to_csv(
-                    csv_path, mode='a', header=False, index=False
-                )
-                print(f"  Saved {len(books_on_page)} books to {csv_path}") 
+                
 
             # Save checkpoint after each page 
             save_checkpoint({
@@ -291,11 +410,15 @@ def scrape():
         save_checkpoint({'completed_categories': completed_categories})
         print(f"Finished category: {cat_name}")  
     # All done
-    clear_checkpoint()
+    update_metadata(db, total_books_scraped, len(categories))
+    # clear_checkpoint()
     print("\nAll categories scraped successfully!") 
-    print(f"   CSV files saved to: {OUTPUT_DIR}/")  
-
 
 
 if __name__ == "__main__":
+    if not MONGODB_URI:
+        print("Error: MONGODB_URI environment variable is not set.")
+        print("Create a .env file or set the variable in your environment, e.g.:")
+        print("MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/?retryWrites=true&w=majority")
+        sys.exit(1)
     scrape()

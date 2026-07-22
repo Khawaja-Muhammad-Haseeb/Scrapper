@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import ErrorMessage from '../common/ErrorMessage'
 import { login as loginRequest } from '../../services/authService'
 import { useAuthStore } from '../../store/authStore'
+import { useToastStore } from '../../store/toastStore'
 import { ROUTES } from '../../constants/routes'
 
 function LoginForm() {
   const navigate = useNavigate()
   const authLogin = useAuthStore((state) => state.login)
+  const toast = useToastStore()
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -38,9 +40,11 @@ function LoginForm() {
       }
 
       authLogin(token, resolvedUsername)
+      toast.success('Signed in successfully!')
       navigate(ROUTES.ADMIN.DASHBOARD)
     } catch {
       setError('Invalid username or password. Please try again.')
+      toast.error('Invalid username or password.')
     } finally {
       setLoading(false)
     }

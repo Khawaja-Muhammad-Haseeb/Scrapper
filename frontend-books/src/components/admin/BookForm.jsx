@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BookImage from '../common/BookImage'
 
 const EMPTY_FORM = {
   Title: '',
@@ -11,6 +12,16 @@ const EMPTY_FORM = {
   Image_URL: '',
   UPC: '',
   Number_of_Reviews: '',
+}
+
+function isValidUrl(string) {
+  if (!string) return true
+  try {
+    const url = new URL(string)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 function bookToForm(book) {
@@ -67,6 +78,18 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
       nextErrors.category = 'Please enter a category.'
     }
 
+    if (form.Image_URL.trim() && !isValidUrl(form.Image_URL.trim())) {
+      nextErrors.Image_URL = 'Please enter a valid HTTP or HTTPS image URL.'
+    }
+
+    if (form.Book_URL.trim() && !isValidUrl(form.Book_URL.trim())) {
+      nextErrors.Book_URL = 'Please enter a valid HTTP or HTTPS book URL.'
+    }
+
+    if (form.Description.length > 2000) {
+      nextErrors.Description = 'Description must not exceed 2000 characters.'
+    }
+
     if (form.Number_of_Reviews !== '') {
       const reviews = parseFloat(form.Number_of_Reviews)
       if (Number.isNaN(reviews)) {
@@ -85,16 +108,17 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
     if (submitting || !validate()) return
 
     const payload = {
-      Title: form.Title.trim(),
-      Price: parseFloat(form.Price),
-      Rating: parseFloat(form.Rating),
-      Availability: form.Availability.trim(),
+      title: form.Title.trim(),
       category: form.category.trim(),
-      Description: form.Description.trim() || undefined,
-      Book_URL: form.Book_URL.trim() || undefined,
-      Image_URL: form.Image_URL.trim() || undefined,
-      UPC: form.UPC.trim() || undefined,
-      Number_of_Reviews: form.Number_of_Reviews.trim() || undefined,
+      price: parseFloat(form.Price),
+      rating: parseInt(form.Rating, 10),
+      availability: form.Availability.trim() || undefined,
+      description: form.Description.trim() || undefined,
+      book_url: form.Book_URL.trim() || undefined,
+      image_url: form.Image_URL.trim() || undefined,
+      upc: form.UPC.trim() || undefined,
+      number_of_reviews:
+        form.Number_of_Reviews !== '' ? parseInt(form.Number_of_Reviews, 10) : undefined,
     }
 
     onSubmit(payload)
@@ -103,7 +127,7 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
   const inputClass = (field) =>
     [
       'w-full rounded-lg border bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60',
-      errors[field] ? 'border-red-300' : 'border-gray-200',
+      errors[field] ? 'border-red-300 ring-1 ring-red-300' : 'border-gray-200',
     ].join(' ')
 
   const labelClass = 'mb-1.5 block text-sm font-medium text-gray-700'
@@ -113,6 +137,24 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
       <h2 className="mb-6 text-xl font-semibold text-gray-900">
         {isEdit ? 'Edit Book' : 'Add New Book'}
       </h2>
+
+      <div className="mb-8 flex flex-col items-center gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:flex-row">
+        <div className="h-28 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <BookImage
+            src={form.Image_URL.trim()}
+            alt="Preview"
+            className="h-full w-full object-cover"
+            containerClassName="h-full w-full"
+            compact
+          />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Cover Image Preview</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Paste a valid image URL below to see a real-time cover preview.
+          </p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -133,7 +175,7 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
 
         <div>
           <label htmlFor="price" className={labelClass}>
-            Price <span className="text-red-500">*</span>
+            Price (£) <span className="text-red-500">*</span>
           </label>
           <input
             id="price"
@@ -151,7 +193,7 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
 
         <div>
           <label htmlFor="rating" className={labelClass}>
-            Rating <span className="text-red-500">*</span>
+            Rating (1–5) <span className="text-red-500">*</span>
           </label>
           <input
             id="rating"
@@ -212,6 +254,7 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
             className={inputClass('Description')}
             placeholder="Book description"
           />
+          {errors.Description && <p className="mt-1 text-xs text-red-600">{errors.Description}</p>}
         </div>
 
         <div>
@@ -227,6 +270,7 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
             className={inputClass('Book_URL')}
             placeholder="https://..."
           />
+          {errors.Book_URL && <p className="mt-1 text-xs text-red-600">{errors.Book_URL}</p>}
         </div>
 
         <div>
@@ -242,6 +286,7 @@ function BookForm({ initialBook, onSubmit, onCancel, submitting, isEdit }) {
             className={inputClass('Image_URL')}
             placeholder="https://..."
           />
+          {errors.Image_URL && <p className="mt-1 text-xs text-red-600">{errors.Image_URL}</p>}
         </div>
 
         <div>

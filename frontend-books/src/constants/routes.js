@@ -7,5 +7,6 @@ export const ROUTES = {
     ROOT: '/admin',
     DASHBOARD: '/admin',
     BOOKS: '/admin/books',
+    CATEGORIES: '/admin/categories',
   },
 }

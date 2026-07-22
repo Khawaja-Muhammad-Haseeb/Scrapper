@@ -9,10 +9,17 @@ import { filterByCategory, normalizeBooks } from '../../utils/bookHelpers'
 function BrowsePage() {
   const [searchParams] = useSearchParams()
   const categoryFilter = searchParams.get('category')
-
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const limit = 20  
   const [books, setBooks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  
+  
+  useEffect(() => {
+  setPage(1)
+  }, [categoryFilter])
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -20,9 +27,18 @@ function BrowsePage() {
         setLoading(true)
         setError(null)
 
-        const params = categoryFilter ? { category: categoryFilter } : {}
+        const params = {
+          page,
+          limit,
+        }
+
+        if (categoryFilter) {
+            params.category = categoryFilter
+        }
         const data = await getBooks(params)
-        const normalized = normalizeBooks(data)
+        setTotal(data.total)
+
+        const normalized = normalizeBooks(data.books)
         setBooks(filterByCategory(normalized, categoryFilter))
       } catch {
         setError('We could not load books right now. Please check your connection and try again.')
@@ -33,10 +49,10 @@ function BrowsePage() {
     }
 
     fetchBooks()
-  }, [categoryFilter])
+  }, [categoryFilter, page])
 
   const pageTitle = categoryFilter || 'All Books'
-
+  const totalPages = Math.ceil(total / limit)
   return (
     <div>
       <div className="mb-10">
@@ -54,7 +70,33 @@ function BrowsePage() {
         <ErrorMessage title="Unable to load books" message={error} />
       )}
 
-      {!loading && !error && <BookGrid books={books} />}
+      {!loading && !error && (
+  <>
+    <BookGrid books={books} />
+
+    <div className="flex justify-center items-center gap-4 mt-8">
+      <button
+        onClick={() => setPage(page - 1)}
+        disabled={page === 1}
+        className="px-4 py-2 border rounded disabled:opacity-50"
+      >
+        Previous
+      </button>
+
+      <span>
+        Page {page} of {totalPages}
+      </span>
+
+      <button
+        onClick={() => setPage(page + 1)}
+        disabled={page === totalPages}
+        className="px-4 py-2 border rounded disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+  </>
+)}
     </div>
   )
 }

@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd frontend-books && npm install && npm run build",
+  "outputDirectory": "frontend-books/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

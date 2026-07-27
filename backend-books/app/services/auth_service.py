@@ -9,12 +9,15 @@ async def authenticate_admin(username: str, password: str):
     Returns a JWT token if credentials are valid.
     """
     db = get_database()
+    if db is None:
+        return None
+
     admin = await db.admins.find_one({"username": username})
 
     if not admin:
         return None
 
-    if not verify_password(password, admin["password"]):
+    if not verify_password(password, admin.get("password", "")):
         return None
 
     token = create_access_token(

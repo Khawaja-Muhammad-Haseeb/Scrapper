@@ -4,10 +4,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     APP_NAME: str = "BookScrape API"
 
-    MONGODB_URI: str = "mongodb+srv://m3050413_db_user:nEYDnPK9mf4qWJx9@books.ctmaz1o.mongodb.net/?appName=Books"
+    MONGODB_URI: str = "mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?appName=Books"
     DATABASE_NAME: str = "books_toscrape"
 
-    JWT_SECRET_KEY: str = "mysecretkey123456789"
+    JWT_SECRET_KEY: str = "your_secure_random_jwt_secret_key_here"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
